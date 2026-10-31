@@ -1,89 +1,148 @@
 import streamlit as st
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
-st.set_page_config(page_title="Property PDF Generator", page_icon="📄", layout="centered")
+# Streamlit Page Setup
+st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
-st.title("🏡 Property Details PDF Generator")
-st.write("अपनी प्रॉपर्टी की जानकारी भरें और एक क्लिक में प्रोफेशनल पीडीएफ डाउनलोड करें।")
+st.title("🏡 Property Information Sheet PDF Generator")
+st.write("बाएं तरफ दी गई फ़ील्ड्स में विवरण भरें और दाहिनी ओर से सीधा PDF डाउनलोड करें।")
 
-with st.form("property_form"):
-    st.subheader("प्रॉपर्टी की मुख्य जानकारी")
-    
-    project_name = st.text_input("प्रोजेक्ट / प्रॉपर्टी का नाम", "Prime Expressway Corridor Land")
-    property_type = st.text_input("प्रॉपर्टी का प्रकार", "AGRICULTURE / INVESTMENT")
-    location = st.text_input("प्रॉपर्टी लोकेशन / कोऑर्डिनेट्स", "Mohna Area, Faridabad (28.230928, 77.436950)")
-    total_area = st.text_input("कुल क्षेत्रफल (Total Plot Area)", "9.5 ACRE")
-    owner_name = st.text_input("मालिक / कंपनी का नाम", "A Star Mega Developer & Land Corp")
-    farming_details = st.text_input("पेड़ / फसल या खास बातें", "Fertile agricultural land patch")
-    road_infra = st.text_input("रास्ता / इंफ्रास्ट्रक्चर", "1 Side Open, Wide Road Access")
-    landmark = st.text_input("लैंडमार्क (आसपास की मुख्य जगह)", "Near KMP Expressway Interchange")
-    price = st.text_input("मांगी गई कीमत (Price)", "₹ 6.5 Crore Per Acre")
-    
-    submitted = st.form_submit_button("Generate PDF")
+# Sidebar for Input Fields
+st.sidebar.header("📝 Property Details Fill Karen")
 
-if submitted:
+ref_no = st.sidebar.text_input("Ref Number", "Ref #7")
+coordinates = st.sidebar.text_input("Location Coordinates", "27.867694, 76.816264")
+nature_prop = st.sidebar.text_input("Nature of Property", "Agriculture")
+district = st.sidebar.text_input("District", "Alwar (Rajasthan)")
+tehsil = st.sidebar.text_input("Tehsil", "Khairthal-Tijara")
+road_infra = st.sidebar.text_input("Road Infra", "Road Front 100' Wide")
+
+connectivity = st.sidebar.text_area(
+    "Connectivity", 
+    "Tijara Jain Mandir se approx 7 KM to Alwar Road\n2 KM inside road (Suitable for Farm House)\nApprox 20 KM from Mumbai Expressway"
+)
+
+demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
+total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
+total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x ₹60 Lakhs)")
+
+
+# Function to generate PDF using ReportLab
+def generate_pdf():
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+    )
+
     styles = getSampleStyleSheet()
+    
+    # Custom Styles
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Heading1'],
         fontSize=20,
-        textColor=colors.HexColor('#1A365D'),
-        alignment=1,
+        leading=24,
+        textColor=colors.HexColor('#1E3A8A'),
+        alignment=1, # Center
         spaceAfter=15
     )
-    
-    heading_style = ParagraphStyle(
-        'HeadingStyle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#2B6CB0'),
-        spaceBefore=10,
-        spaceAfter=6
-    )
-    
-    normal_style = ParagraphStyle(
-        'NormalStyle',
+
+    header_style = ParagraphStyle(
+        'HeaderStyle',
         parent=styles['Normal'],
         fontSize=11,
-        textColor=colors.HexColor('#2D3748'),
-        spaceAfter=4
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#1F2937')
     )
-    
+
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#374151')
+    )
+
     story = []
-    story.append(Paragraph("EXCLUSIVE PROPERTY BRIEFING", title_style))
-    story.append(Paragraph("-" * 50, title_style))
+
+    # Title
+    story.append(Paragraph("PROPERTY DETAILS", title_style))
     story.append(Spacer(1, 10))
-    
-    story.append(Paragraph("📋 Project Overview", heading_style))
-    story.append(Paragraph(f"<b>Project Name:</b> {project_name}", normal_style))
-    story.append(Paragraph(f"<b>Property Type:</b> {property_type}", normal_style))
-    story.append(Paragraph(f"<b>Location / Coordinates:</b> {location}", normal_style))
-    story.append(Paragraph(f"<b>Total Area:</b> {total_area}", normal_style))
-    story.append(Paragraph(f"<b>Owner / Company:</b> {owner_name}", normal_style))
-    
-    story.append(Paragraph("📍 Infrastructure & Connectivity", heading_style))
-    story.append(Paragraph(f"<b>Road Infrastructure:</b> {road_infra}", normal_style))
-    story.append(Paragraph(f"<b>Key Landmark:</b> {landmark}", normal_style))
-    story.append(Paragraph(f"<b>Features / Farming:</b> {farming_details}", normal_style))
-    
-    story.append(Paragraph("💰 Commercial Details", heading_style))
-    story.append(Paragraph(f"<b>Required Amount / Price:</b> {price}", normal_style))
-    
+
+    # Formatted Connectivity Text (Replace newline with <br/>)
+    formatted_connectivity = connectivity.replace("\n", "<br/>")
+
+    # Table Data Structure
+    data = [
+        [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coordinates, cell_style)],
+        [Paragraph("Nature of Property", header_style), Paragraph(nature_prop, cell_style)],
+        [Paragraph("District", header_style), Paragraph(district, cell_style)],
+        [Paragraph("Tehsil", header_style), Paragraph(tehsil, cell_style)],
+        [Paragraph("Road Infra", header_style), Paragraph(road_infra, cell_style)],
+        [Paragraph("Connectivity", header_style), Paragraph(formatted_connectivity, cell_style)],
+        [Paragraph("Demand", header_style), Paragraph(demand, cell_style)],
+        [Paragraph("Total Area", header_style), Paragraph(total_area, cell_style)],
+        [Paragraph("Total Amount", header_style), Paragraph(total_amount, cell_style)]
+    ]
+
+    # Create Table
+    col_widths = [2.2 * inch, 4.8 * inch]
+    t = Table(data, colWidths=col_widths)
+
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F9FAFB')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111827')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')), # Left column background
+    ]))
+
+    story.append(t)
+    story.append(Spacer(1, 20))
+
+    # Footer Reference
+    footer_text = f"Property Information Sheet - {ref_no}"
+    story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
+
+    # Build Document
     doc.build(story)
     buffer.seek(0)
+    return buffer
+
+# Main Area Layout
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.subheader("📋 Enter Details Preview")
+    st.write(f"**Ref:** {ref_no}")
+    st.write(f"**Coordinates:** {coordinates}")
+    st.write(f"**Nature:** {nature_prop}")
+    st.write(f"**District:** {district}")
+    st.write(f"**Tehsil:** {tehsil}")
+    st.write(f"**Road Infra:** {road_infra}")
+    st.write(f"**Connectivity:**")
+    st.info(connectivity)
+    st.write(f"**Demand:** {demand}")
+    st.write(f"**Total Area:** {total_area}")
+    st.write(f"**Total Amount:** {total_amount}")
+
+with col2:
+    st.subheader("📄 Generate & Download PDF")
+    pdf_bytes = generate_pdf()
     
-    st.success("पीडीएफ सफलतापूर्वक तैयार हो गई है!")
     st.download_button(
-        label="📥 Download PDF Now",
-        data=buffer,
-        file_name="property_details.pdf",
-        mime="application/pdf"
+        label="📥 Download PDF",
+        data=pdf_bytes,
+        file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
     )
-  
