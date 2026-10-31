@@ -80,9 +80,16 @@ def generate_pdf():
     # Formatted Connectivity Text (Replace newline with <br/>)
     formatted_connectivity = connectivity.replace("\n", "<br/>")
 
+    # Google Maps Clickable Link for Coordinates
+    clean_coords = coordinates.strip()
+    maps_url = f"https://www.google.com/maps/search/?api=1&query={clean_coords}"
+    
+    # Styled clickable link text for PDF
+    coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u>{coordinates} 📍 (Click to Open Map)</u></a>'
+
     # Table Data Structure
     data = [
-        [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coordinates, cell_style)],
+        [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coord_link_html, cell_style)],
         [Paragraph("Nature of Property", header_style), Paragraph(nature_prop, cell_style)],
         [Paragraph("District", header_style), Paragraph(district, cell_style)],
         [Paragraph("Tehsil", header_style), Paragraph(tehsil, cell_style)],
