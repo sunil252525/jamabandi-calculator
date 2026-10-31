@@ -66,4 +66,3 @@ if st.button("हिस्सा निकालें (Calculate)", type="prima
 
 st.divider()
 st.caption("नोट: 1 कनाल = 20 मरले | 1 मरला = 9 सरसाही | 1 सरसाही = 30.25 वर्ग फीट")
-st.page_link("pages/property_list.py", label="👉 Property PDF Generator पर जाएं", icon="📄")
