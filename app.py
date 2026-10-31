@@ -12,7 +12,7 @@ import io
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("विवरण भरें, फोटो या अतिरिक्त पीडीएफ (नक्शा/दस्तावेज़) अपलोड करें और संयुक्त पीडीएफ डाउनलोड करें।")
+st.write("विवरण भरें, कस्टमाइज़्ड फील्ड्स जोड़ें, फोटो/पीडीएफ अपलोड करें और पीडीएफ डाउनलोड करें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
@@ -32,6 +32,15 @@ connectivity = st.sidebar.text_area(
 demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
 total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
 total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x Rs. 60 Lakhs)")
+
+# Extra Custom Fields (अगर खाली छोड़ेंगे तो पीडीएफ में नहीं आएंगे)
+st.sidebar.markdown("---")
+st.sidebar.header("➕ Extra Custom Fields (Optional)")
+custom_title_1 = st.sidebar.text_input("Extra Heading 1 (जैसे: Water Source / Other)", "")
+custom_desc_1 = st.sidebar.text_area("Extra Details 1", "")
+
+custom_title_2 = st.sidebar.text_input("Extra Heading 2 (जैसे: Legal Status / Remarks)", "")
+custom_desc_2 = st.sidebar.text_area("Extra Details 2", "")
 
 # File uploaders for photo and extra PDF
 st.sidebar.markdown("---")
@@ -112,6 +121,7 @@ def generate_main_pdf(image_file, layout_choice):
     maps_url = f"https://www.google.com/maps/search/?api=1&query={clean_coords}"
     coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u><b>{coordinates} (Click to Open Map)</b></u></a>'
 
+    # Base Table Data
     data = [
         [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coord_link_html, cell_style)],
         [Paragraph("Nature of Property", header_style), Paragraph(nature_prop, cell_style)],
@@ -123,6 +133,16 @@ def generate_main_pdf(image_file, layout_choice):
         [Paragraph("Total Area", header_style), Paragraph(total_area, cell_style)],
         [Paragraph("Total Amount", header_style), Paragraph(total_amount, cell_style)]
     ]
+
+    # Dynamically add custom field 1 if filled
+    if custom_title_1.strip() and custom_desc_1.strip():
+        formatted_desc_1 = custom_desc_1.replace("\n", "<br/>")
+        data.append([Paragraph(custom_title_1, header_style), Paragraph(formatted_desc_1, cell_style)])
+
+    # Dynamically add custom field 2 if filled
+    if custom_title_2.strip() and custom_desc_2.strip():
+        formatted_desc_2 = custom_desc_2.replace("\n", "<br/>")
+        data.append([Paragraph(custom_title_2, header_style), Paragraph(formatted_desc_2, cell_style)])
 
     col_widths = [2.4 * inch, 4.8 * inch]
     t = Table(data, colWidths=col_widths)
@@ -179,12 +199,10 @@ def get_final_pdf(image_file, layout_choice, extra_pdf_file):
     if extra_pdf_file is not None:
         writer = PdfWriter()
         
-        # Read main generated PDF
         reader_main = PdfReader(main_pdf_buffer)
         for page in reader_main.pages:
             writer.add_page(page)
             
-        # Read extra uploaded PDF and append its pages
         reader_extra = PdfReader(extra_pdf_file)
         for page in reader_extra.pages:
             writer.add_page(page)
@@ -206,6 +224,11 @@ with col1:
     st.write(f"**Coordinates:** {coordinates}")
     st.write(f"**District:** {district}")
     
+    if custom_title_1.strip():
+        st.write(f"**{custom_title_1}:** {custom_desc_1}")
+    if custom_title_2.strip():
+        st.write(f"**{custom_title_2}:** {custom_desc_2}")
+        
     if uploaded_photo is not None:
         st.success("📸 Photo successfully uploaded!")
         st.image(uploaded_photo, caption="Uploaded Photo Preview", use_container_width=True)
