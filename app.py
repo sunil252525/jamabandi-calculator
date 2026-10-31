@@ -80,11 +80,11 @@ def generate_pdf():
     # Formatted Connectivity Text (Replace newline with <br/>)
     formatted_connectivity = connectivity.replace("\n", "<br/>")
 
-    # Google Maps Clickable Link for Coordinates (बिना इमोजी के, ताकि एरर या बॉक्स न आए)
+    # Google Maps Clickable Link with proper target tag for PDF readers
     clean_coords = coordinates.strip()
     maps_url = f"https://www.google.com/maps/search/?api=1&query={clean_coords}"
     
-    coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u>{coordinates} (Click to Open Map)</u></a>'
+    coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u><b>{coordinates} (Click to Open Map)</b></u></a>'
 
     # Table Data Structure
     data = [
