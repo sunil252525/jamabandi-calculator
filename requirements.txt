@@ -1,2 +1,4 @@
-reportlab
 streamlit
+reportlab
+Pillow
+pypdf
