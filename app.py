@@ -39,17 +39,18 @@ uploaded_file = st.sidebar.file_uploader("प्रॉपर्टी की फ
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
     "फोटो कहाँ दिखनी चाहिए?",
-    ["डिटेल के ठीक नीचे (Same Page)", "अलग से पूरे दूसरे पेज पर (Full Second Page)"]
+    ["डिटेल के ठीक नीचे (Same Page - बड़ा साइज़)", "अलग से पूरे दूसरे पेज पर (Full A4 Page Cover)"]
 )
 
 
 # Function to generate PDF using ReportLab
 def generate_pdf(image_file, layout_choice):
     buffer = io.BytesIO()
+    # A4/Letter margins ko optimize kiya gaya hai
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
+        rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30
     )
 
     styles = getSampleStyleSheet()
@@ -61,7 +62,7 @@ def generate_pdf(image_file, layout_choice):
         leading=26,
         textColor=colors.HexColor('#1E3A8A'),
         alignment=1,
-        spaceAfter=20
+        spaceAfter=15
     )
 
     header_style = ParagraphStyle(
@@ -85,7 +86,7 @@ def generate_pdf(image_file, layout_choice):
 
     # Title
     story.append(Paragraph("PROPERTY DETAILS", title_style))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 10))
 
     formatted_connectivity = connectivity.replace("\n", "<br/>")
 
@@ -105,7 +106,7 @@ def generate_pdf(image_file, layout_choice):
         [Paragraph("Total Amount", header_style), Paragraph(total_amount, cell_style)]
     ]
 
-    col_widths = [2.3 * inch, 4.8 * inch]
+    col_widths = [2.4 * inch, 4.8 * inch]
     t = Table(data, colWidths=col_widths)
 
     t.setStyle(TableStyle([
@@ -113,8 +114,8 @@ def generate_pdf(image_file, layout_choice):
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111827')),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('RIGHTPADDING', (0, 0), (-1, -1), 10),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1D5DB')),
@@ -122,27 +123,27 @@ def generate_pdf(image_file, layout_choice):
     ]))
 
     story.append(t)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 15))
 
     footer_text = f"Property Information Sheet - {ref_no}"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Photo condition based on user choice
+    # Photo condition with proper A4 full sizing & same page filling
     if image_file is not None:
-        if layout_choice == "अलग से पूरे दूसरे पेज पर (Full Second Page)":
+        if layout_choice == "अलग से पूरे दूसरे पेज पर (Full A4 Page Cover)":
             story.append(PageBreak())  # नया पेज बनाएगा
             story.append(Paragraph("PROPERTY SITE VIEW", title_style))
-            story.append(Spacer(1, 15))
-            # पूरे पेज को कवर करने के लिए बड़ा साइज़
-            img = Image(image_file, width=6.8 * inch, height=7.5 * inch)
+            story.append(Spacer(1, 10))
+            # पूरे पेज को प्रॉपर कवर करने के लिए बड़ा साइज़ (Width & Height stretched nicely)
+            img = Image(image_file, width=7.2 * inch, height=8.2 * inch)
             img.hAlign = 'CENTER'
             story.append(img)
         else:
-            # पहली ही पेज पर डिटेल के नीचे
-            story.append(Spacer(1, 20))
-            story.append(Paragraph("PROPERTY PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1E3A8A'))))
-            story.append(Spacer(1, 10))
-            img = Image(image_file, width=5.5 * inch, height=3.5 * inch)
+            # पहली ही पेज पर नीचे बची हुई जगह को अच्छे से भरने के लिए बड़ा साइज़
+            story.append(Spacer(1, 15))
+            story.append(Paragraph("PROPERTY PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#1E3A8A'))))
+            story.append(Spacer(1, 8))
+            img = Image(image_file, width=6.5 * inch, height=4.2 * inch)
             img.hAlign = 'CENTER'
             story.append(img)
 
