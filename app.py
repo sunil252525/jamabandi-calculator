@@ -4,6 +4,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from PIL import Image as PILImage
 import io
 
 # Streamlit Page Setup
@@ -39,14 +40,31 @@ uploaded_file = st.sidebar.file_uploader("प्रॉपर्टी की फ
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
     "फोटो कहाँ दिखनी चाहिए?",
-    ["डिटेल के ठीक नीचे (Same Page - बड़ा साइज़)", "अलग से पूरे दूसरे पेज पर (Full A4 Page Cover)"]
+    ["डिटेल के ठीक नीचे (Same Page - Proportional Fit)", "अलग से पूरे दूसरे पेज पर (Full Page - Proportional Fit)"]
 )
+
+
+# Function to calculate proportional image size without stretching
+def get_proportional_image(image_file, max_width, max_height):
+    img = PILImage.open(image_file)
+    orig_width, orig_height = img.size
+    
+    # Aspect ratio calculate karein taaki photo stretch ya kharab na ho
+    aspect = orig_height / orig_width
+    
+    width = max_width
+    height = width * aspect
+    
+    if height > max_height:
+        height = max_height
+        width = height / aspect
+        
+    return image_file, width, height
 
 
 # Function to generate PDF using ReportLab
 def generate_pdf(image_file, layout_choice):
     buffer = io.BytesIO()
-    # A4/Letter margins ko optimize kiya gaya hai
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
@@ -128,22 +146,26 @@ def generate_pdf(image_file, layout_choice):
     footer_text = f"Property Information Sheet - {ref_no}"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Photo condition with proper A4 full sizing & same page filling
+    # Photo condition with strict aspect ratio lock (No Stretching)
     if image_file is not None:
-        if layout_choice == "अलग से पूरे दूसरे पेज पर (Full A4 Page Cover)":
-            story.append(PageBreak())  # नया पेज बनाएगा
+        if layout_choice == "अलग से पूरे दूसरे पेज पर (Full Page - Proportional Fit)":
+            story.append(PageBreak())  # नया पेज
             story.append(Paragraph("PROPERTY SITE VIEW", title_style))
             story.append(Spacer(1, 10))
-            # पूरे पेज को प्रॉपर कवर करने के लिए बड़ा साइज़ (Width & Height stretched nicely)
-            img = Image(image_file, width=7.2 * inch, height=8.2 * inch)
+            
+            # दूसरे पेज के लिए मैक्सिमम साइज़ (बिना फोटो खींचे/चौड़े किए)
+            img_file, img_w, img_h = get_proportional_image(image_file, max_width=7.2*inch, max_height=8.0*inch)
+            img = Image(img_file, width=img_w, height=img_h)
             img.hAlign = 'CENTER'
             story.append(img)
         else:
-            # पहली ही पेज पर नीचे बची हुई जगह को अच्छे से भरने के लिए बड़ा साइज़
+            # पहले पेज पर नीचे खाली जगह के लिए प्रोपोर्शनल फिट
             story.append(Spacer(1, 15))
             story.append(Paragraph("PROPERTY PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#1E3A8A'))))
             story.append(Spacer(1, 8))
-            img = Image(image_file, width=6.5 * inch, height=4.2 * inch)
+            
+            img_file, img_w, img_h = get_proportional_image(image_file, max_width=6.5*inch, max_height=3.8*inch)
+            img = Image(img_file, width=img_w, height=img_h)
             img.hAlign = 'CENTER'
             story.append(img)
 
@@ -173,5 +195,5 @@ with col2:
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
         use_container_width=True
-    )
+)
     
