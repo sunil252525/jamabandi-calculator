@@ -6,26 +6,50 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from PIL import Image as PILImage
 from pypdf import PdfWriter, PdfReader
+from geopy.geocoders import Nominatim
 import io
 
 # Streamlit Page Setup
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("विवरण चुनें/भरें, फोटो या अतिरिक्त पीडीएफ अपलोड करें और तुरंत परफेक्ट पीडीएफ डाउनलोड करें।")
+st.write("कोऑर्डिनेट्स डालें, जिला अपने आप डिटेक्ट हो जाएगा, बाकी विवरण चुनें और पीडीएफ डाउनलोड करें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
 
 ref_no = st.sidebar.text_input("Ref Number", "Ref #7")
-coordinates = st.sidebar.text_input("Location Coordinates", "27.867694, 76.816264")
 
-# Dropdown for Nature of Property (क्लिक करके चुनने के लिए)
+# Location Coordinates Input
+coordinates = st.sidebar.text_input("Location Coordinates (Lat, Long)", "27.867694, 76.816264")
+
+# Function to auto-fetch District from Coordinates using Geopy
+def get_district_from_coords(coords_text):
+    try:
+        geolocator = Nominatim(user_agent="property_pdf_generator_app_v1")
+        location = geolocator.reverse(coords_text.strip(), language='en', timeout=10)
+        if location and location.raw.get('address'):
+            address = location.raw['address']
+            # District ya nearby area extract karna
+            district_name = address.get('state_district') or address.get('county') or address.get('city') or address.get('town')
+            state_name = address.get('state', '')
+            if district_name:
+                return f"{district_name} ({state_name})"
+    except Exception:
+        pass
+    return None
+
+# Auto-detect district if coordinates are valid
+auto_district = get_district_from_coords(coordinates)
+default_district = auto_district if auto_district else "Alwar (Rajasthan)"
+
+# Dropdown for Nature of Property
 nature_options = ["Agriculture", "Commercial", "Industrial", "Residential", "All"]
 nature_prop = st.sidebar.selectbox("Nature of Property", nature_options)
 
-# Dropdown for District
+# District Field (Auto-filled or selected from dropdown)
 district_options = [
+    default_district,
     "Alwar (Rajasthan)", 
     "Faridabad (Haryana)", 
     "Gurugram (Haryana)", 
@@ -33,7 +57,9 @@ district_options = [
     "Gautam Buddha Nagar (UP)", 
     "Other"
 ]
-district = st.sidebar.selectbox("District", district_options)
+# Remove duplicates if any
+district_options = list(dict.fromkeys(district_options))
+district = st.sidebar.selectbox("District (Auto-detected / Select)", district_options)
 
 # Dropdown for Tehsil
 tehsil_options = [
@@ -274,5 +300,5 @@ with col2:
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
         use_container_width=True
-            )
+    )
     
