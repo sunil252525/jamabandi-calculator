@@ -10,7 +10,7 @@ import io
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("बाएं तरफ विवरण भरें, अपनी प्रॉपर्टी की फोटो अपलोड करें और तुरंत PDF डाउनलोड करें।")
+st.write("बाएं तरफ विवरण भरें, फोटो अपलोड करें और पीडीएफ लेआउट चुनें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
@@ -33,12 +33,18 @@ total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 
 
 # File uploader for property photo
 st.sidebar.markdown("---")
-st.sidebar.header("🖼️ Property Photo Upload")
+st.sidebar.header("🖼️ Property Photo & Layout Option")
 uploaded_file = st.sidebar.file_uploader("प्रॉपर्टी की फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
+
+# Radio button to choose photo position
+photo_layout = st.sidebar.radio(
+    "फोटो कहाँ दिखनी चाहिए?",
+    ["डिटेल के ठीक नीचे (Same Page)", "अलग से पूरे दूसरे पेज पर (Full Second Page)"]
+)
 
 
 # Function to generate PDF using ReportLab
-def generate_pdf(image_file):
+def generate_pdf(image_file, layout_choice):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -48,7 +54,6 @@ def generate_pdf(image_file):
 
     styles = getSampleStyleSheet()
     
-    # Custom Styles
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Heading1'],
@@ -82,15 +87,12 @@ def generate_pdf(image_file):
     story.append(Paragraph("PROPERTY DETAILS", title_style))
     story.append(Spacer(1, 12))
 
-    # Formatted Connectivity Text
     formatted_connectivity = connectivity.replace("\n", "<br/>")
 
-    # Google Maps Clickable Link
     clean_coords = coordinates.strip()
     maps_url = f"https://www.google.com/maps/search/?api=1&query={clean_coords}"
     coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u><b>{coordinates} (Click to Open Map)</b></u></a>'
 
-    # Table Data Structure
     data = [
         [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coord_link_html, cell_style)],
         [Paragraph("Nature of Property", header_style), Paragraph(nature_prop, cell_style)],
@@ -120,24 +122,30 @@ def generate_pdf(image_file):
     ]))
 
     story.append(t)
-    story.append(Spacer(1, 25))
+    story.append(Spacer(1, 20))
 
-    # Footer Reference for Page 1
     footer_text = f"Property Information Sheet - {ref_no}"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Agar user ne photo upload ki hai, toh use dusre page par ya neeche add karein
+    # Photo condition based on user choice
     if image_file is not None:
-        story.append(PageBreak()) # Yeh naya page bana dega
-        story.append(Paragraph("PROPERTY PHOTO / SITE VIEW", title_style))
-        story.append(Spacer(1, 15))
-        
-        # Image ko PDF ke anusaar fit karna
-        img = Image(image_file, width=6.5*inch, height=4.5*inch)
-        img.hAlign = 'CENTER'
-        story.append(img)
+        if layout_choice == "अलग से पूरे दूसरे पेज पर (Full Second Page)":
+            story.append(PageBreak())  # नया पेज बनाएगा
+            story.append(Paragraph("PROPERTY SITE VIEW", title_style))
+            story.append(Spacer(1, 15))
+            # पूरे पेज को कवर करने के लिए बड़ा साइज़
+            img = Image(image_file, width=6.8 * inch, height=7.5 * inch)
+            img.hAlign = 'CENTER'
+            story.append(img)
+        else:
+            # पहली ही पेज पर डिटेल के नीचे
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("PROPERTY PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1E3A8A'))))
+            story.append(Spacer(1, 10))
+            img = Image(image_file, width=5.5 * inch, height=3.5 * inch)
+            img.hAlign = 'CENTER'
+            story.append(img)
 
-    # Build Document
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -149,26 +157,17 @@ with col1:
     st.subheader("📋 Enter Details Preview")
     st.write(f"**Ref:** {ref_no}")
     st.write(f"**Coordinates:** {coordinates}")
-    st.write(f"**Nature:** {nature_prop}")
     st.write(f"**District:** {district}")
-    st.write(f"**Tehsil:** {tehsil}")
-    st.write(f"**Road Infra:** {road_infra}")
-    st.write(f"**Connectivity:**")
-    st.info(connectivity)
-    st.write(f"**Demand:** {demand}")
-    st.write(f"**Total Area:** {total_area}")
-    st.write(f"**Total Amount:** {total_amount}")
-    
     if uploaded_file is not None:
         st.success("📸 Photo successfully uploaded!")
-        st.image(uploaded_file, caption="Uploaded Property Photo", use_container_width=True)
+        st.image(uploaded_file, caption="Uploaded Photo Preview", use_container_width=True)
 
 with col2:
     st.subheader("📄 Generate & Download PDF")
-    pdf_bytes = generate_pdf(uploaded_file)
+    pdf_bytes = generate_pdf(uploaded_file, photo_layout)
     
     st.download_button(
-        label="📥 Download PDF with Photo",
+        label="📥 Download PDF",
         data=pdf_bytes,
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
