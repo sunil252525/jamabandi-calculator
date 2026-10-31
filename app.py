@@ -2,7 +2,7 @@ import streamlit as st
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
@@ -10,7 +10,7 @@ import io
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("बाएं तरफ दी गई फ़ील्ड्स में विवरण भरें और दाहिनी ओर से सीधा PDF डाउनलोड करें।")
+st.write("बाएं तरफ विवरण भरें, अपनी प्रॉपर्टी की फोटो अपलोड करें और तुरंत PDF डाउनलोड करें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
@@ -31,9 +31,14 @@ demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
 total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
 total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x Rs. 60 Lakhs)")
 
+# File uploader for property photo
+st.sidebar.markdown("---")
+st.sidebar.header("🖼️ Property Photo Upload")
+uploaded_file = st.sidebar.file_uploader("प्रॉपर्टी की फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
+
 
 # Function to generate PDF using ReportLab
-def generate_pdf():
+def generate_pdf(image_file):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -77,13 +82,12 @@ def generate_pdf():
     story.append(Paragraph("PROPERTY DETAILS", title_style))
     story.append(Spacer(1, 12))
 
-    # Formatted Connectivity Text (Replace newline with <br/>)
+    # Formatted Connectivity Text
     formatted_connectivity = connectivity.replace("\n", "<br/>")
 
-    # Google Maps Clickable Link with proper target tag for PDF readers
+    # Google Maps Clickable Link
     clean_coords = coordinates.strip()
     maps_url = f"https://www.google.com/maps/search/?api=1&query={clean_coords}"
-    
     coord_link_html = f'<a href="{maps_url}" color="#1D4ED8"><u><b>{coordinates} (Click to Open Map)</b></u></a>'
 
     # Table Data Structure
@@ -99,11 +103,9 @@ def generate_pdf():
         [Paragraph("Total Amount", header_style), Paragraph(total_amount, cell_style)]
     ]
 
-    # Create Table Widths
     col_widths = [2.3 * inch, 4.8 * inch]
     t = Table(data, colWidths=col_widths)
 
-    # Table Padding और Border Styling
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F9FAFB')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111827')),
@@ -120,9 +122,20 @@ def generate_pdf():
     story.append(t)
     story.append(Spacer(1, 25))
 
-    # Footer Reference
+    # Footer Reference for Page 1
     footer_text = f"Property Information Sheet - {ref_no}"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
+
+    # Agar user ne photo upload ki hai, toh use dusre page par ya neeche add karein
+    if image_file is not None:
+        story.append(PageBreak()) # Yeh naya page bana dega
+        story.append(Paragraph("PROPERTY PHOTO / SITE VIEW", title_style))
+        story.append(Spacer(1, 15))
+        
+        # Image ko PDF ke anusaar fit karna
+        img = Image(image_file, width=6.5*inch, height=4.5*inch)
+        img.hAlign = 'CENTER'
+        story.append(img)
 
     # Build Document
     doc.build(story)
@@ -145,13 +158,17 @@ with col1:
     st.write(f"**Demand:** {demand}")
     st.write(f"**Total Area:** {total_area}")
     st.write(f"**Total Amount:** {total_amount}")
+    
+    if uploaded_file is not None:
+        st.success("📸 Photo successfully uploaded!")
+        st.image(uploaded_file, caption="Uploaded Property Photo", use_container_width=True)
 
 with col2:
     st.subheader("📄 Generate & Download PDF")
-    pdf_bytes = generate_pdf()
+    pdf_bytes = generate_pdf(uploaded_file)
     
     st.download_button(
-        label="📥 Download PDF",
+        label="📥 Download PDF with Photo",
         data=pdf_bytes,
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
