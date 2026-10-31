@@ -1,69 +1,149 @@
 import streamlit as st
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import io
 
-# वेब पेज की सेटिंग
-st.set_page_config(page_title="हरियाणा जमाबंदी हिस्सा कैलकुलेटर", page_icon="🌾", layout="centered")
+# Streamlit Page Setup
+st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
-st.title("🌾 हरियाणा जमाबंदी एवं भू-लेख हिस्सा कैलकुलेटर")
-st.write("इस ऐप से आप जमाबंदी के अनुसार कुल रकबे में से किसी हिस्सेदार की ज़मीन का सटीक हिस्सा निकाल सकते हैं।")
+st.title("🏡 Property Information Sheet PDF Generator")
+st.write("बाएं तरफ दी गई फ़ील्ड्स में विवरण भरें और दाहिनी ओर से सीधा PDF डाउनलोड करें।")
 
-st.divider()
+# Sidebar for Input Fields
+st.sidebar.header("📝 Property Details Fill Karen")
 
-# 1. कुल रकबा इनपुट
-st.subheader("1. कुल ज़मीन का रकबा दर्ज करें")
-col1, col2, col3 = st.columns(3)
+ref_no = st.sidebar.text_input("Ref Number", "Ref #7")
+coordinates = st.sidebar.text_input("Location Coordinates", "27.867694, 76.816264")
+nature_prop = st.sidebar.text_input("Nature of Property", "Agriculture")
+district = st.sidebar.text_input("District", "Alwar (Rajasthan)")
+tehsil = st.sidebar.text_input("Tehsil", "Khairthal-Tijara")
+road_infra = st.sidebar.text_input("Road Infra", "Road Front 100' Wide")
+
+connectivity = st.sidebar.text_area(
+    "Connectivity", 
+    "Tijara Jain Mandir se approx 7 KM to Alwar Road\n2 KM inside road (Suitable for Farm House)\nApprox 20 KM from Mumbai Expressway"
+)
+
+demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
+total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
+total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x ₹60 Lakhs)")
+
+
+# Function to generate PDF using ReportLab
+def generate_pdf():
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+    )
+
+    styles = getSampleStyleSheet()
+    
+    # Custom Styles
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor('#1E3A8A'),
+        alignment=1, # Center
+        spaceAfter=15
+    )
+
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#1F2937')
+    )
+
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#374151')
+    )
+
+    story = []
+
+    # Title
+    story.append(Paragraph("PROPERTY DETAILS", title_style))
+    story.append(Spacer(1, 10))
+
+    # Formatted Connectivity Text (Replace newline with <br/>)
+    formatted_connectivity = connectivity.replace("\n", "<br/>")
+
+    # Table Data Structure
+    data = [
+        [Paragraph("LOCATION COORDINATES", header_style), Paragraph(coordinates, cell_style)],
+        [Paragraph("Nature of Property", header_style), Paragraph(nature_prop, cell_style)],
+        [Paragraph("District", header_style), Paragraph(district, cell_style)],
+        [Paragraph("Tehsil", header_style), Paragraph(tehsil, cell_style)],
+        [Paragraph("Road Infra", header_style), Paragraph(road_infra, cell_style)],
+        [Paragraph("Connectivity", header_style), Paragraph(formatted_connectivity, cell_style)],
+        [Paragraph("Demand", header_style), Paragraph(demand, cell_style)],
+        [Paragraph("Total Area", header_style), Paragraph(total_area, cell_style)],
+        [Paragraph("Total Amount", header_style), Paragraph(total_amount, cell_style)]
+    ]
+
+    # Create Table
+    col_widths = [2.2 * inch, 4.8 * inch]
+    t = Table(data, colWidths=col_widths)
+
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F9FAFB')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111827')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')), # Left column background
+    ]))
+
+    story.append(t)
+    story.append(Spacer(1, 20))
+
+    # Footer Reference
+    footer_text = f"Property Information Sheet - {ref_no}"
+    story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
+
+    # Build Document
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# Main Area Layout
+col1, col2 = st.columns([1, 1])
 
 with col1:
-    total_kanal = st.number_input("कनाल", min_value=0, value=4, step=1)
+    st.subheader("📋 Enter Details Preview")
+    st.write(f"**Ref:** {ref_no}")
+    st.write(f"**Coordinates:** {coordinates}")
+    st.write(f"**Nature:** {nature_prop}")
+    st.write(f"**District:** {district}")
+    st.write(f"**Tehsil:** {tehsil}")
+    st.write(f"**Road Infra:** {road_infra}")
+    st.write(f"**Connectivity:**")
+    st.info(connectivity)
+    st.write(f"**Demand:** {demand}")
+    st.write(f"**Total Area:** {total_area}")
+    st.write(f"**Total Amount:** {total_amount}")
+
 with col2:
-    total_marla = st.number_input("मरला", min_value=0, max_value=19, value=12, step=1)
-with col3:
-    total_sarsahi = st.number_input("सरसाही", min_value=0.0, max_value=8.99, value=6.0, step=0.01)
-
-st.divider()
-
-# 2. हिस्सा (Fractional Share) इनपुट
-st.subheader("2. व्यक्ति का हिस्सा (Share) दर्ज करें")
-col_num, col_den = st.columns(2)
-
-with col_num:
-    numerator = st.number_input("अंश (Numerator - जैसे 25)", min_value=1, value=25, step=1)
-with col_den:
-    denominator = st.number_input("हर (Denominator - जैसे 120)", min_value=1, value=120, step=1)
-
-# गणना बटन
-if st.button("हिस्सा निकालें (Calculate)", type="primary"):
-    # कुल सरसाही की गणना
-    # 1 कनाल = 180 सरसाही, 1 मरला = 9 सरसाही
-    total_sarsahi_sum = (total_kanal * 180) + (total_marla * 9) + total_sarsahi
+    st.subheader("📄 Generate & Download PDF")
+    pdf_bytes = generate_pdf()
     
-    # हिस्सेदार की सरसाही
-    person_sarsahi = total_sarsahi_sum * (numerator / denominator)
+    st.download_button(
+        label="📥 Download PDF",
+        data=pdf_bytes,
+        file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
     
-    # वापस कनाल और मरला में परिवर्तन
-    res_marla_total = person_sarsahi / 9.0
-    res_kanal = int(res_marla_total // 20)
-    res_marla = int(res_marla_total % 20)
-    res_sarsahi = person_sarsahi - ((res_kanal * 180) + (res_marla * 9))
-    
-    # वर्ग फीट और वर्ग गज में गणना
-    # 1 सरसाही = 30.25 वर्ग फीट
-    sq_ft = person_sarsahi * 30.25
-    sq_yards = sq_ft / 9.0
-    
-    st.divider()
-    st.success("### 📊 गणना का परिणाम:")
-    
-    # परिणाम प्रदर्शित करना
-    st.metric(label="व्यक्ति के हिस्से का कुल रकबा", value=f"{res_kanal} कनाल {res_marla} मरला {res_sarsahi:.2f} सरसाही")
-    
-    res_col1, res_col2, res_col3 = st.columns(3)
-    with res_col1:
-        st.metric("कुल सरसाही", f"{person_sarsahi:.2f}")
-    with res_col2:
-        st.metric("वर्ग फीट (Sq. Ft.)", f"{sq_ft:,.2f}")
-    with res_col3:
-        st.metric("वर्ग गज (Sq. Yards)", f"{sq_yards:,.2f}")
-
-st.divider()
-st.caption("नोट: 1 कनाल = 20 मरले | 1 मरला = 9 सरसाही | 1 सरसाही = 30.25 वर्ग फीट")
-st.page_link("pages/property_list.py", label="👉 Property PDF Generator पर जाएं", icon="📄")
