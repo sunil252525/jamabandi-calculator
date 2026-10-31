@@ -12,16 +12,42 @@ import io
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("विवरण भरें, कस्टमाइज़्ड फील्ड्स जोड़ें, फोटो/पीडीएफ अपलोड करें और पीडीएफ डाउनलोड करें।")
+st.write("विवरण चुनें/भरें, फोटो या अतिरिक्त पीडीएफ अपलोड करें और तुरंत परफेक्ट पीडीएफ डाउनलोड करें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
 
 ref_no = st.sidebar.text_input("Ref Number", "Ref #7")
 coordinates = st.sidebar.text_input("Location Coordinates", "27.867694, 76.816264")
-nature_prop = st.sidebar.text_input("Nature of Property", "Agriculture")
-district = st.sidebar.text_input("District", "Alwar (Rajasthan)")
-tehsil = st.sidebar.text_input("Tehsil", "Khairthal-Tijara")
+
+# Dropdown for Nature of Property (क्लिक करके चुनने के लिए)
+nature_options = ["Agriculture", "Commercial", "Industrial", "Residential", "All"]
+nature_prop = st.sidebar.selectbox("Nature of Property", nature_options)
+
+# Dropdown for District
+district_options = [
+    "Alwar (Rajasthan)", 
+    "Faridabad (Haryana)", 
+    "Gurugram (Haryana)", 
+    "Palwal (Haryana)", 
+    "Gautam Buddha Nagar (UP)", 
+    "Other"
+]
+district = st.sidebar.selectbox("District", district_options)
+
+# Dropdown for Tehsil
+tehsil_options = [
+    "Khairthal-Tijara", 
+    "Tijara", 
+    "Faridabad", 
+    "Ballabgarh", 
+    "Sohna", 
+    "Hodal", 
+    "Jewar", 
+    "Other"
+]
+tehsil = st.sidebar.selectbox("Tehsil", tehsil_options)
+
 road_infra = st.sidebar.text_input("Road Infra", "Road Front 100' Wide")
 
 connectivity = st.sidebar.text_area(
@@ -33,7 +59,7 @@ demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
 total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
 total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x Rs. 60 Lakhs)")
 
-# Extra Custom Fields (अगर खाली छोड़ेंगे तो पीडीएफ में नहीं आएंगे)
+# Extra Custom Fields (Optional)
 st.sidebar.markdown("---")
 st.sidebar.header("➕ Extra Custom Fields (Optional)")
 custom_title_1 = st.sidebar.text_input("Extra Heading 1 (जैसे: Water Source / Other)", "")
@@ -223,6 +249,8 @@ with col1:
     st.write(f"**Ref:** {ref_no}")
     st.write(f"**Coordinates:** {coordinates}")
     st.write(f"**District:** {district}")
+    st.write(f"**Nature of Property:** {nature_prop}")
+    st.write(f"**Tehsil:** {tehsil}")
     
     if custom_title_1.strip():
         st.write(f"**{custom_title_1}:** {custom_desc_1}")
@@ -246,5 +274,5 @@ with col2:
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
         use_container_width=True
-    )
+            )
     
