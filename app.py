@@ -5,13 +5,14 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from PIL import Image as PILImage
+from pypdf import PdfWriter, PdfReader
 import io
 
 # Streamlit Page Setup
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet PDF Generator")
-st.write("बाएं तरफ विवरण भरें, फोटो अपलोड करें और पीडीएफ लेआउट चुनें।")
+st.write("विवरण भरें, फोटो या अतिरिक्त पीडीएफ (नक्शा/दस्तावेज़) अपलोड करें और संयुक्त पीडीएफ डाउनलोड करें।")
 
 # Sidebar for Input Fields
 st.sidebar.header("📝 Property Details Fill Karen")
@@ -32,10 +33,11 @@ demand = st.sidebar.text_input("Demand", "60 Lakhs Per Bigha")
 total_area = st.sidebar.text_input("Total Area", "129 Bigha (3025 Gaj in 1 Bigha)")
 total_amount = st.sidebar.text_input("Total Amount", "77.4 Crore (Approx.) (129 Bigha x Rs. 60 Lakhs)")
 
-# File uploader for property photo
+# File uploaders for photo and extra PDF
 st.sidebar.markdown("---")
-st.sidebar.header("🖼️ Property Photo & Layout Option")
-uploaded_file = st.sidebar.file_uploader("प्रॉपर्टी की फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
+st.sidebar.header("📎 Attachments (Photo & Extra PDF)")
+uploaded_photo = st.sidebar.file_uploader("प्रॉपर्टी की फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
+uploaded_pdf = st.sidebar.file_uploader("अतिरिक्त पीडीएफ चुनें (जैसे नक्शा / दस्तावेज़)", type=["pdf"])
 
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
@@ -49,9 +51,7 @@ def get_proportional_image(image_file, max_width, max_height):
     img = PILImage.open(image_file)
     orig_width, orig_height = img.size
     
-    # Aspect ratio calculate karein taaki photo stretch ya kharab na ho
     aspect = orig_height / orig_width
-    
     width = max_width
     height = width * aspect
     
@@ -62,8 +62,8 @@ def get_proportional_image(image_file, max_width, max_height):
     return image_file, width, height
 
 
-# Function to generate PDF using ReportLab
-def generate_pdf(image_file, layout_choice):
+# Function to generate main property details PDF
+def generate_main_pdf(image_file, layout_choice):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -146,20 +146,18 @@ def generate_pdf(image_file, layout_choice):
     footer_text = f"Property Information Sheet - {ref_no}"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Photo condition with strict aspect ratio lock (No Stretching)
+    # Photo condition with strict aspect ratio lock
     if image_file is not None:
         if layout_choice == "अलग से पूरे दूसरे पेज पर (Full Page - Proportional Fit)":
-            story.append(PageBreak())  # नया पेज
+            story.append(PageBreak())
             story.append(Paragraph("PROPERTY SITE VIEW", title_style))
             story.append(Spacer(1, 10))
             
-            # दूसरे पेज के लिए मैक्सिमम साइज़ (बिना फोटो खींचे/चौड़े किए)
             img_file, img_w, img_h = get_proportional_image(image_file, max_width=7.2*inch, max_height=8.0*inch)
             img = Image(img_file, width=img_w, height=img_h)
             img.hAlign = 'CENTER'
             story.append(img)
         else:
-            # पहले पेज पर नीचे खाली जगह के लिए प्रोपोर्शनल फिट
             story.append(Spacer(1, 15))
             story.append(Paragraph("PROPERTY PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#1E3A8A'))))
             story.append(Spacer(1, 8))
@@ -173,6 +171,32 @@ def generate_pdf(image_file, layout_choice):
     buffer.seek(0)
     return buffer
 
+
+# Function to merge main PDF with extra uploaded PDF
+def get_final_pdf(image_file, layout_choice, extra_pdf_file):
+    main_pdf_buffer = generate_main_pdf(image_file, layout_choice)
+    
+    if extra_pdf_file is not None:
+        writer = PdfWriter()
+        
+        # Read main generated PDF
+        reader_main = PdfReader(main_pdf_buffer)
+        for page in reader_main.pages:
+            writer.add_page(page)
+            
+        # Read extra uploaded PDF and append its pages
+        reader_extra = PdfReader(extra_pdf_file)
+        for page in reader_extra.pages:
+            writer.add_page(page)
+            
+        final_buffer = io.BytesIO()
+        writer.write(final_buffer)
+        final_buffer.seek(0)
+        return final_buffer
+    else:
+        return main_pdf_buffer
+
+
 # Main Area Layout
 col1, col2 = st.columns([1, 1])
 
@@ -181,19 +205,23 @@ with col1:
     st.write(f"**Ref:** {ref_no}")
     st.write(f"**Coordinates:** {coordinates}")
     st.write(f"**District:** {district}")
-    if uploaded_file is not None:
+    
+    if uploaded_photo is not None:
         st.success("📸 Photo successfully uploaded!")
-        st.image(uploaded_file, caption="Uploaded Photo Preview", use_container_width=True)
+        st.image(uploaded_photo, caption="Uploaded Photo Preview", use_container_width=True)
+        
+    if uploaded_pdf is not None:
+        st.success("📄 Extra PDF attached successfully!")
 
 with col2:
     st.subheader("📄 Generate & Download PDF")
-    pdf_bytes = generate_pdf(uploaded_file, photo_layout)
+    pdf_bytes = get_final_pdf(uploaded_photo, photo_layout, uploaded_pdf)
     
     st.download_button(
-        label="📥 Download PDF",
+        label="📥 Download Complete PDF",
         data=pdf_bytes,
         file_name=f"Property_Details_{ref_no.replace('#', '')}.pdf",
         mime="application/pdf",
         use_container_width=True
-)
+    )
     
