@@ -4,7 +4,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from PIL import Image as PILImage, ImageOps, ImageEnhance
+from PIL import Image as PILImage, ImageEnhance
 from pypdf import PdfWriter, PdfReader
 from geopy.geocoders import Nominatim
 import io
@@ -13,7 +13,7 @@ import io
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
 st.title("🏡 Property Information Sheet & Computerized Blueprint Generator")
-st.write("विवरण भरें, नक्शा अपलोड करें जो ऑटोमैटिक कंप्यूटराइज्ड ब्लूप्रिंट में बदल जाएगा, और पीडीएफ डाउनलोड करें।")
+st.write("विवरण भरें, नक्शा अपलोड करें जो ऑटोमैटिक नीले और लाल रंग के कंप्यूटराइज्ड ब्लूप्रिंट में बदलेगा, और पीडीएफ डाउनलोड करें।")
 
 # Session State initialization for persistent memory
 if "ref_no" not in st.session_state:
@@ -48,7 +48,7 @@ def get_district_from_coords(coords_text):
     try:
         if not coords_text.strip():
             return ""
-        geolocator = Nominatim(user_agent="property_pdf_generator_app_v6")
+        geolocator = Nominatim(user_agent="property_pdf_generator_app_v7")
         location = geolocator.reverse(coords_text.strip(), language='en', timeout=10)
         if location and location.raw.get('address'):
             address = location.raw['address']
@@ -110,8 +110,8 @@ st.sidebar.header("📎 Attachments (Photo / Blueprint & Extra PDF)")
 uploaded_photo = st.sidebar.file_uploader("प्रॉपर्टी का नक्शा या फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
 uploaded_pdf = st.sidebar.file_uploader("अतिरिक्त पीडीएफ चुनें (जैसे इंतखाब / दस्तावेज़)", type=["pdf"])
 
-# Toggle for Blueprint computerized effect
-blueprint_effect = st.sidebar.checkbox("नक्शे को कंप्यूटराइज्ड ब्लूप्रिंट (High-Contrast Tech Style) में बदलें", value=True)
+# Toggle for Blueprint computerized color effect
+blueprint_effect = st.sidebar.checkbox("नक्शे को नीले और लाल (Blue & Red Tech Blueprint) रंग में साफ करें", value=True)
 
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
@@ -120,20 +120,39 @@ photo_layout = st.sidebar.radio(
 )
 
 
-# Function to process image into computerized blueprint style and fit proportionally
+# Function to process image into professional Blue & Red Blueprint style
 def process_blueprint_image(image_file, max_width, max_height, apply_effect=True):
-    img = PILImage.open(image_file)
+    img = PILImage.open(image_file).convert("RGB")
     
     if apply_effect:
-        # Convert to grayscale and enhance contrast to give a clean computerized blueprint look
-        img = img.convert("L")
-        img = ImageOps.autocontrast(img, cutoff=3)
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(1.8)
-        # Convert back to RGB for ReportLab compatibility
-        img = img.convert("RGB")
+        # Enhance contrast and brightness to make background clean white and text/lines sharp
+        enhancer_contrast = ImageEnhance.Contrast(img)
+        img = enhancer_contrast.enhance(1.6)
+        
+        enhancer_brightness = ImageEnhance.Brightness(img)
+        img = enhancer_brightness.enhance(1.2)
+        
+        # Pixel manipulation to convert dark/black lines to clean Blue and keep Red marks distinct
+        pixels = img.load()
+        width, height = img.size
+        
+        for x in range(width):
+            for y in range(height):
+                r, g, b = pixels[x, y]
+                
+                # Check if the pixel is Red (Red channel significantly higher than green and blue)
+                if r > 100 and g < 80 and b < 80:
+                    # Keep it distinct Red
+                    pixels[x, y] = (220, 20, 60)
+                # Check if it's dark/blackish (lines, handwritten text)
+                elif r < 120 and g < 120 and b < 120:
+                    # Convert dark lines/text into clean professional Blue (#1E3A8A)
+                    pixels[x, y] = (30, 58, 138)
+                else:
+                    # Make background clean bright white
+                    pixels[x, y] = (255, 255, 255)
     
-    # Save processed image to a temporary bytes buffer
+    # Save processed image to buffer
     img_buffer = io.BytesIO()
     img.save(img_buffer, format="JPEG")
     img_buffer.seek(0)
@@ -252,7 +271,7 @@ def generate_main_pdf(image_file, layout_choice, effect_choice):
     footer_text = f"Property Information Sheet - Ref No: {ref_no}" if ref_no else "Property Information Sheet"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Blueprint / Photo condition with computerized blueprint filter & framing
+    # Blueprint / Photo condition with Blue & Red computerized filter
     if image_file is not None:
         if layout_choice == "अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)":
             story.append(PageBreak())
@@ -334,7 +353,7 @@ with col1:
         st.write(f"**{custom_title_2}:** {custom_desc_2}")
         
     if uploaded_photo is not None:
-        st.success("📸 Photo / Blueprint successfully uploaded & processed!")
+        st.success("📸 Photo / Blueprint successfully uploaded & processed in Blue & Red!")
         st.image(uploaded_photo, caption="Uploaded Blueprint Preview", use_container_width=True)
         
     if uploaded_pdf is not None:
