@@ -4,7 +4,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from PIL import Image as PILImage
+from PIL import Image as PILImage, ImageOps, ImageEnhance
 from pypdf import PdfWriter, PdfReader
 from geopy.geocoders import Nominatim
 import io
@@ -12,8 +12,8 @@ import io
 # Streamlit Page Setup
 st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 
-st.title("🏡 Property Information Sheet & Blueprint Generator")
-st.write("विवरण भरें, जो आखिरी बार डालेंगे वह सेव रहेगा, और कंप्यूटराइज्ड नक्शे के साथ पीडीएफ डाउनलोड करें।")
+st.title("🏡 Property Information Sheet & Computerized Blueprint Generator")
+st.write("विवरण भरें, नक्शा अपलोड करें जो ऑटोमैटिक कंप्यूटराइज्ड ब्लूप्रिंट में बदल जाएगा, और पीडीएफ डाउनलोड करें।")
 
 # Session State initialization for persistent memory
 if "ref_no" not in st.session_state:
@@ -48,7 +48,7 @@ def get_district_from_coords(coords_text):
     try:
         if not coords_text.strip():
             return ""
-        geolocator = Nominatim(user_agent="property_pdf_generator_app_v5")
+        geolocator = Nominatim(user_agent="property_pdf_generator_app_v6")
         location = geolocator.reverse(coords_text.strip(), language='en', timeout=10)
         if location and location.raw.get('address'):
             address = location.raw['address']
@@ -107,21 +107,38 @@ custom_desc_2 = st.sidebar.text_area("Extra Details 2", "")
 # File uploaders for photo/blueprint and extra PDF
 st.sidebar.markdown("---")
 st.sidebar.header("📎 Attachments (Photo / Blueprint & Extra PDF)")
-uploaded_photo = st.sidebar.file_uploader("प्रॉपर्टी की फोटो या नक्शा (Blueprint) चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
+uploaded_photo = st.sidebar.file_uploader("प्रॉपर्टी का नक्शा या फोटो चुनें (JPG, PNG)", type=["jpg", "jpeg", "png"])
 uploaded_pdf = st.sidebar.file_uploader("अतिरिक्त पीडीएफ चुनें (जैसे इंतखाब / दस्तावेज़)", type=["pdf"])
+
+# Toggle for Blueprint computerized effect
+blueprint_effect = st.sidebar.checkbox("नक्शे को कंप्यूटराइज्ड ब्लूप्रिंट (High-Contrast Tech Style) में बदलें", value=True)
 
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
-    "नक्शा या फोटो कहाँ दिखनी चाहिए?",
+    "नक्शा कहाँ दिखना चाहिए?",
     ["अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)", "डिटेल के ठीक नीचे (Same Page - Framed Fit)"]
 )
 
 
-# Function to calculate proportional image size without stretching
-def get_proportional_image(image_file, max_width, max_height):
+# Function to process image into computerized blueprint style and fit proportionally
+def process_blueprint_image(image_file, max_width, max_height, apply_effect=True):
     img = PILImage.open(image_file)
-    orig_width, orig_height = img.size
     
+    if apply_effect:
+        # Convert to grayscale and enhance contrast to give a clean computerized blueprint look
+        img = img.convert("L")
+        img = ImageOps.autocontrast(img, cutoff=3)
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.8)
+        # Convert back to RGB for ReportLab compatibility
+        img = img.convert("RGB")
+    
+    # Save processed image to a temporary bytes buffer
+    img_buffer = io.BytesIO()
+    img.save(img_buffer, format="JPEG")
+    img_buffer.seek(0)
+    
+    orig_width, orig_height = img.size
     aspect = orig_height / orig_width
     width = max_width
     height = width * aspect
@@ -130,11 +147,11 @@ def get_proportional_image(image_file, max_width, max_height):
         height = max_height
         width = height / aspect
         
-    return image_file, width, height
+    return img_buffer, width, height
 
 
 # Function to generate main property details PDF
-def generate_main_pdf(image_file, layout_choice):
+def generate_main_pdf(image_file, layout_choice, effect_choice):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -204,12 +221,10 @@ def generate_main_pdf(image_file, layout_choice):
         if val and str(val).strip():
             data.append([Paragraph(title, header_style), Paragraph(str(val), cell_style)])
 
-    # Dynamically add custom field 1 if filled
     if custom_title_1.strip() and custom_desc_1.strip():
         formatted_desc_1 = custom_desc_1.replace("\n", "<br/>")
         data.append([Paragraph(custom_title_1, header_style), Paragraph(formatted_desc_1, cell_style)])
 
-    # Dynamically add custom field 2 if filled
     if custom_title_2.strip() and custom_desc_2.strip():
         formatted_desc_2 = custom_desc_2.replace("\n", "<br/>")
         data.append([Paragraph(custom_title_2, header_style), Paragraph(formatted_desc_2, cell_style)])
@@ -237,16 +252,16 @@ def generate_main_pdf(image_file, layout_choice):
     footer_text = f"Property Information Sheet - Ref No: {ref_no}" if ref_no else "Property Information Sheet"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Blueprint / Photo condition with computerized layout framing
+    # Blueprint / Photo condition with computerized blueprint filter & framing
     if image_file is not None:
         if layout_choice == "अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)":
             story.append(PageBreak())
-            story.append(Paragraph("OFFICIAL PROPERTY BLUEPRINT / SITE LAYOUT", title_style))
+            story.append(Paragraph("OFFICIAL COMPUTERIZED PROPERTY BLUEPRINT", title_style))
             story.append(Spacer(1, 10))
             
-            img_file, img_w, img_h = get_proportional_image(image_file, max_width=7.2*inch, max_height=8.0*inch)
+            img_buf, img_w, img_h = process_blueprint_image(image_file, max_width=7.2*inch, max_height=8.0*inch, apply_effect=effect_choice)
             
-            blueprint_table = Table([[Image(img_file, width=img_w, height=img_h)]], colWidths=[7.4 * inch])
+            blueprint_table = Table([[Image(img_buf, width=img_w, height=img_h)]], colWidths=[7.4 * inch])
             blueprint_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor('#1E3A8A')),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFFFFF')),
@@ -258,13 +273,12 @@ def generate_main_pdf(image_file, layout_choice):
             story.append(blueprint_table)
         else:
             story.append(Spacer(1, 10))
-            story.append(Paragraph("PROPERTY SITE BLUEPRINT / PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1E3A8A'))))
+            story.append(Paragraph("PROPERTY SITE BLUEPRINT", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1E3A8A'))))
             story.append(Spacer(1, 5))
             
-            img_file, img_w, img_h = get_proportional_image(image_file, max_width=6.5*inch, max_height=3.5*inch)
+            img_buf, img_w, img_h = process_blueprint_image(image_file, max_width=6.5*inch, max_height=3.5*inch, apply_effect=effect_choice)
             
-            # Framed box for same page as well
-            blueprint_table = Table([[Image(img_file, width=img_w, height=img_h)]], colWidths=[6.7 * inch])
+            blueprint_table = Table([[Image(img_buf, width=img_w, height=img_h)]], colWidths=[6.7 * inch])
             blueprint_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 1.0, colors.HexColor('#1E3A8A')),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFFFFF')),
@@ -281,8 +295,8 @@ def generate_main_pdf(image_file, layout_choice):
 
 
 # Function to merge main PDF with extra uploaded PDF
-def get_final_pdf(image_file, layout_choice, extra_pdf_file):
-    main_pdf_buffer = generate_main_pdf(image_file, layout_choice)
+def get_final_pdf(image_file, layout_choice, effect_choice, extra_pdf_file):
+    main_pdf_buffer = generate_main_pdf(image_file, layout_choice, effect_choice)
     
     if extra_pdf_file is not None:
         writer = PdfWriter()
@@ -320,7 +334,7 @@ with col1:
         st.write(f"**{custom_title_2}:** {custom_desc_2}")
         
     if uploaded_photo is not None:
-        st.success("📸 Photo / Blueprint successfully uploaded!")
+        st.success("📸 Photo / Blueprint successfully uploaded & processed!")
         st.image(uploaded_photo, caption="Uploaded Blueprint Preview", use_container_width=True)
         
     if uploaded_pdf is not None:
@@ -328,7 +342,7 @@ with col1:
 
 with col2:
     st.subheader("📄 Generate & Download PDF")
-    pdf_bytes = get_final_pdf(uploaded_photo, photo_layout, uploaded_pdf)
+    pdf_bytes = get_final_pdf(uploaded_photo, photo_layout, blueprint_effect, uploaded_pdf)
     
     st.download_button(
         label="📥 Download Complete PDF",
