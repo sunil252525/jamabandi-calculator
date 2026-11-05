@@ -15,7 +15,7 @@ st.set_page_config(page_title="Property Detail PDF Generator", layout="wide")
 st.title("🏡 Property Information Sheet & Blueprint Generator")
 st.write("विवरण भरें, जो आखिरी बार डालेंगे वह सेव रहेगा, और कंप्यूटराइज्ड नक्शे के साथ पीडीएफ डाउनलोड करें।")
 
-# Session State initialization for persistent memory (जो लास्ट बार डाला, वही सेव रहे)
+# Session State initialization for persistent memory
 if "ref_no" not in st.session_state:
     st.session_state.ref_no = ""
 if "coordinates" not in st.session_state:
@@ -48,7 +48,7 @@ def get_district_from_coords(coords_text):
     try:
         if not coords_text.strip():
             return ""
-        geolocator = Nominatim(user_agent="property_pdf_generator_app_v4")
+        geolocator = Nominatim(user_agent="property_pdf_generator_app_v5")
         location = geolocator.reverse(coords_text.strip(), language='en', timeout=10)
         if location and location.raw.get('address'):
             address = location.raw['address']
@@ -66,13 +66,13 @@ auto_district = get_district_from_coords(coordinates)
 nature_options = ["", "Agriculture", "Commercial", "Industrial", "Residential", "All"]
 nature_prop = st.sidebar.selectbox("Nature of Property", nature_options)
 
-# District Field (खाली या ऑटो-डिटेक्टेड)
+# District Field
 district_options = ["", auto_district, "Alwar (Rajasthan)", "Faridabad (Haryana)", "Gurugram (Haryana)", "Palwal (Haryana)", "Other"]
-district_options = [x for x in district_options if x]  # Remove empty duplicates
+district_options = [x for x in district_options if x]
 district_options = list(dict.fromkeys(district_options))
 district = st.sidebar.selectbox("District (Auto-detected / Select)", district_options)
 
-# Tehsil - बिल्कुल खाली (Blank) ताकि आप खुद भर सकें
+# Tehsil - Blank
 tehsil = st.sidebar.text_input("Tehsil", value=st.session_state.tehsil, key="tehsil_input")
 st.session_state.tehsil = tehsil
 
@@ -113,7 +113,7 @@ uploaded_pdf = st.sidebar.file_uploader("अतिरिक्त पीडी�
 # Radio button to choose photo position
 photo_layout = st.sidebar.radio(
     "नक्शा या फोटो कहाँ दिखनी चाहिए?",
-    ["डिटेल के ठीक नीचे (Same Page - Proportional Fit)", "अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)"]
+    ["अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)", "डिटेल के ठीक नीचे (Same Page - Framed Fit)"]
 )
 
 
@@ -186,7 +186,7 @@ def generate_main_pdf(image_file, layout_choice):
     else:
         coord_link_html = ""
 
-    # Base Table Data (केवल वही चीज़ें दिखाएगा जो भरी गई हैं)
+    # Base Table Data
     raw_data = [
         ("LOCATION COORDINATES", coord_link_html),
         ("Nature of Property", nature_prop),
@@ -201,7 +201,7 @@ def generate_main_pdf(image_file, layout_choice):
 
     data = []
     for title, val in raw_data:
-        if val and str(val).strip():  # खाली फ़ील्ड्स को पीडीएफ से हटा देगा
+        if val and str(val).strip():
             data.append([Paragraph(title, header_style), Paragraph(str(val), cell_style)])
 
     # Dynamically add custom field 1 if filled
@@ -237,7 +237,7 @@ def generate_main_pdf(image_file, layout_choice):
     footer_text = f"Property Information Sheet - Ref No: {ref_no}" if ref_no else "Property Information Sheet"
     story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=cell_style, alignment=1, textColor=colors.gray)))
 
-    # Blueprint / Photo condition with computerized layout formatting
+    # Blueprint / Photo condition with computerized layout framing
     if image_file is not None:
         if layout_choice == "अलग से पूरे दूसरे पेज पर (Computerized Blueprint Page)":
             story.append(PageBreak())
@@ -261,10 +261,19 @@ def generate_main_pdf(image_file, layout_choice):
             story.append(Paragraph("PROPERTY SITE BLUEPRINT / PHOTO", ParagraphStyle('SubTitle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1E3A8A'))))
             story.append(Spacer(1, 5))
             
-            img_file, img_w, img_h = get_proportional_image(image_file, max_width=6.5*inch, max_height=3.2*inch)
-            img = Image(img_file, width=img_w, height=img_h)
-            img.hAlign = 'CENTER'
-            story.append(img)
+            img_file, img_w, img_h = get_proportional_image(image_file, max_width=6.5*inch, max_height=3.5*inch)
+            
+            # Framed box for same page as well
+            blueprint_table = Table([[Image(img_file, width=img_w, height=img_h)]], colWidths=[6.7 * inch])
+            blueprint_table.setStyle(TableStyle([
+                ('BOX', (0, 0), (-1, -1), 1.0, colors.HexColor('#1E3A8A')),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFFFFF')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ]))
+            story.append(blueprint_table)
 
     doc.build(story)
     buffer.seek(0)
